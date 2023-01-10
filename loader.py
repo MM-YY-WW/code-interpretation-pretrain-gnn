@@ -107,10 +107,11 @@ def mol_to_graph_data_obj_simple(mol):
     :return: graph data object with the attributes: x, edge_index, edge_attr
     """
     #对于原子来说，有两个特征，一个是原子的类型，一个是原子的手性标签？为什么说原子有手性？不都是分子有手性吗？
-    ##########################################
     # atoms
     num_atom_features = 2   # atom type,  chirality tag
+    #建一个特征的list
     atom_features_list = []
+    #对于分子图中的每一个原子来说， 原来可以用GetAtoms()来取原子阿
     for atom in mol.GetAtoms():
         atom_feature = [allowable_features['possible_atomic_num_list'].index(
             atom.GetAtomicNum())] + [allowable_features[
