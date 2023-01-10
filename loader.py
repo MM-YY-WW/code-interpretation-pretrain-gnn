@@ -115,11 +115,14 @@ def mol_to_graph_data_obj_simple(mol):
     for atom in mol.GetAtoms():
         #原子的特征，用了前面提到的存有节点和键特征的字典
         #对于每个原子建一个原子array，将对应特征的index存在array里面用逗号隔开，所以每个原子都会生成一个二维的array eg:[2,1]
-        
         atom_feature = [allowable_features['possible_atomic_num_list'].index(
             atom.GetAtomicNum())] + [allowable_features[
             'possible_chirality_list'].index(atom.GetChiralTag())]
+        
+        #然后将得出的所有原子的二维小feature放到前面建的list里面
         atom_features_list.append(atom_feature)
+        
+    #之后为原子的特征建一个tensor x， 里面是type为long的 [2,原子数] 的array
     x = torch.tensor(np.array(atom_features_list), dtype=torch.long)
 
     # bonds
