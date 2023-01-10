@@ -19,6 +19,7 @@ from itertools import repeat, product, chain
 
 
 # allowable node and edge features
+#这个字典包含了节点和
 allowable_features = {
     #原子序号表，从1到199
     'possible_atomic_num_list' : list(range(1, 119)), 
@@ -31,33 +32,71 @@ allowable_features = {
         
         # rdkit中的几种不同的手性分子
         Chem.rdchem.ChiralType.CHI_UNSPECIFIED,
+        
+        #Tetrahedral是四面体的意思
+        #CW是clockwise
         Chem.rdchem.ChiralType.CHI_TETRAHEDRAL_CW,
+        #CCW是counterclockwise
         Chem.rdchem.ChiralType.CHI_TETRAHEDRAL_CCW,
         Chem.rdchem.ChiralType.CHI_OTHER
     ],
+    #可能的杂化轨道列表
     'possible_hybridization_list' : [
         Chem.rdchem.HybridizationType.S,
-        Chem.rdchem.HybridizationType.SP, Chem.rdchem.HybridizationType.SP2,
-        Chem.rdchem.HybridizationType.SP3, Chem.rdchem.HybridizationType.SP3D,
-        Chem.rdchem.HybridizationType.SP3D2, Chem.rdchem.HybridizationType.UNSPECIFIED
+        
+        #sp轨道由一个s一个p组成，linear，呈180度角
+        Chem.rdchem.HybridizationType.SP,
+        
+        #sp2 是1s2p组成，trigonal planar，呈120度角
+        Chem.rdchem.HybridizationType.SP2,
+        
+        #sp3， 1s3p，tetrahedral，呈109.5度角
+        Chem.rdchem.HybridizationType.SP3, 
+        
+        #1s3p1d
+        Chem.rdchem.HybridizationType.SP3D,
+        
+        #1s3p2d
+        Chem.rdchem.HybridizationType.SP3D2, 
+        
+        #其他
+        Chem.rdchem.HybridizationType.UNSPECIFIED
     ],
+    
+    #可能有多少个氢原子
     'possible_numH_list' : [0, 1, 2, 3, 4, 5, 6, 7, 8],
+    
+    #在open Babel的说法中，valence指一个原子有多少个键而不是化合价？这个不清楚测的是什么
     'possible_implicit_valence_list' : [0, 1, 2, 3, 4, 5, 6],
+    
+    #degree应该就是这个原子有多少个键吧？可能也不是？一个原子还能有十个键的吗？
     'possible_degree_list' : [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+    
+    #可能的键的类型
     'possible_bonds' : [
+        #单键
         Chem.rdchem.BondType.SINGLE,
+        #双键
         Chem.rdchem.BondType.DOUBLE,
+        #三键
         Chem.rdchem.BondType.TRIPLE,
+        #芳香键
         Chem.rdchem.BondType.AROMATIC
     ],
+    
     'possible_bond_dirs' : [ # only for double bond stereo information
         Chem.rdchem.BondDir.NONE,
+        # end up right
         Chem.rdchem.BondDir.ENDUPRIGHT,
+        # end down right
         Chem.rdchem.BondDir.ENDDOWNRIGHT
     ]
 }
 
+#看起来像是把分子转化成图表示，的simple方法
 def mol_to_graph_data_obj_simple(mol):
+    #将rdkit给出的分子表示转化为pytorch geometric包所要求的图表示
+    #用了简化版的原子和键的特征，用目录
     """
     Converts rdkit mol object to graph Data object required by the pytorch
     geometric package. NB: Uses simplified atom and bond features, and represent
