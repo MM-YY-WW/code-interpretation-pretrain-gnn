@@ -1,2 +1,4 @@
 # code-interpretation-pretrain-gnn
-strategies for pre-training graph neural networks
+Code interpretation in Chinese of paper "strategies for pre-training graph neural networks"
+
+
