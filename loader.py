@@ -113,6 +113,9 @@ def mol_to_graph_data_obj_simple(mol):
     atom_features_list = []
     #对于分子图中的每一个原子来说， 原来可以用GetAtoms()来取原子阿
     for atom in mol.GetAtoms():
+        #原子的特征，用了前面提到的存有节点和键特征的字典
+        #对于每个原子建一个原子array，将对应特征的index存在array里面用逗号隔开，所以每个原子都会生成一个二维的array eg:[2,1]
+        
         atom_feature = [allowable_features['possible_atomic_num_list'].index(
             atom.GetAtomicNum())] + [allowable_features[
             'possible_chirality_list'].index(atom.GetChiralTag())]
