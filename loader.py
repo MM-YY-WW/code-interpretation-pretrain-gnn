@@ -96,7 +96,9 @@ allowable_features = {
 #看起来像是把分子转化成图表示，的simple方法
 def mol_to_graph_data_obj_simple(mol):
     #将rdkit给出的分子表示转化为pytorch geometric包所要求的图表示
-    #用了简化版的原子和键的特征，用目录
+    #用了简化版的原子和键的特征，用目录表示
+    #输入的是rdkit的分子object
+    #输出， x:, edge_index:, edge_attr
     """
     Converts rdkit mol object to graph Data object required by the pytorch
     geometric package. NB: Uses simplified atom and bond features, and represent
@@ -104,6 +106,8 @@ def mol_to_graph_data_obj_simple(mol):
     :param mol: rdkit mol object
     :return: graph data object with the attributes: x, edge_index, edge_attr
     """
+    #对于原子来说，有两个特征，一个是原子的类型，一个是原子的手性标签？为什么说原子有手性？不都是分子有手性吗？
+    ##########################################
     # atoms
     num_atom_features = 2   # atom type,  chirality tag
     atom_features_list = []
