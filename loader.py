@@ -160,19 +160,33 @@ def mol_to_graph_data_obj_simple(mol):
         # data.edge_index: Graph connectivity in COO format with shape [2, num_edges]
         #edge list是[键数*2, 2]的array， T一下就是[2, 键数*2]的array,这个为什么能代表图的连通性connectivity呢，这不是只有一个array吗为什么说是COO format（Coordinate format）的呢？一定要用long来存吗？
         edge_index = torch.tensor(np.array(edges_list).T, dtype=torch.long)
-
+        
+        #把[键数*2, 2]的键的特征列表建成tensor存到edge_attr中
         # data.edge_attr: Edge feature matrix with shape [num_edges, num_edge_features]
         edge_attr = torch.tensor(np.array(edge_features_list),
                                  dtype=torch.long)
+    #如果分子中不含有键
     else:   # mol has no bonds
+        #会生成一个[[],[]]的tensor？那既然里面没有数的话为什么要调torch.empty？
         edge_index = torch.empty((2, 0), dtype=torch.long)
+        #这个就是生成一个[]的tensor？
         edge_attr = torch.empty((0, num_bond_features), dtype=torch.long)
-
+    
+    #最后将需要return的三个值用Data()封装一下，这个Data是torch.geometric.data中调的class，
+    #Data(x: Optional[Tensor] = None, 
+    #     edge_index: Optional[Tensor] = None, 
+    #     edge_attr: Optional[Tensor] = None, 
+    #     y: Optional[Tensor] = None, 
+    #     pos: Optional[Tensor] = None, 
+    #     **kwargs)
+    #A data object describing a homogeneous graph. The data object can hold node-level, link-level and graph-level attributes. In general, Data tries to mimic the behaviour of a regular Python dictionary.
     data = Data(x=x, edge_index=edge_index, edge_attr=edge_attr)
-
+    #最后将封装好的data return出去，就是适合torch.geometric用的图结构了
     return data
 
 def graph_data_obj_to_mol_simple(data_x, data_edge_index, data_edge_attr):
+    #将上一个function生成的可以用在torch geometric 的 data转化回rdkit的分子
+    #用的是简化的分子和键的特征
     """
     Convert pytorch geometric data obj to rdkit mol object. NB: Uses simplified
     atom and bond features, and represent as indices.
