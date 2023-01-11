@@ -198,25 +198,55 @@ def graph_data_obj_to_mol_simple(data_x, data_edge_index, data_edge_attr):
     #RWMol()用于分子的读写，在修改分子方面性能更好。提供一个可活动的分子并且共享mol对象的操作接口，修改完毕后用GetMol()获得最终的分子。
     mol = Chem.RWMol()
 
+    
     # atoms
-    atom_features = data_x.cpu().numpy()
+    # 把原子的特征tensor转化成numpy array 
+    atom_features = data_x.cpu().numpy() 
+    # 原子特征array的第一维的大小是总原子数 
     num_atoms = atom_features.shape[0]
+    # 遍历特征array中的原子
     for i in range(num_atoms):
+        #提出两个特征的index，原子序数的index和手性标签的index
         atomic_num_idx, chirality_tag_idx = atom_features[i]
+        
+        #将原子序数具体的值用index和最开始建的字典提出来
         atomic_num = allowable_features['possible_atomic_num_list'][atomic_num_idx]
+        
+        #将手性标签的具体标签用index和最开始建的字典提出来
         chirality_tag = allowable_features['possible_chirality_list'][chirality_tag_idx]
+        
+        #输入原子序数在rdkit里创建一个原子
         atom = Chem.Atom(atomic_num)
+        
+        #将该原子的手性标签加回去
         atom.SetChiralTag(chirality_tag)
+        
+        #将这个原子加到可读写的rdkit分子中
         mol.AddAtom(atom)
 
     # bonds
-    edge_index = data_edge_index.cpu().numpy()
-    edge_attr = data_edge_attr.cpu().numpy()
+    #再处理化学键
+    #将两个有关边的tensor都转化回numpy
+    edge_index = data_edge_index.cpu().numpy()  #[2, 键数*2]
+    
+    edge_attr = data_edge_attr.cpu().numpy()  #[键数*2, 2]
+    
+    #提取边的数量
     num_bonds = edge_index.shape[1]
+    
+    #因为当时正反向的同一条边都存了一次，所以loop的时候隔一个取一个
     for j in range(0, num_bonds, 2):
+        
+        # edge_index[0] 存着所有键的起点
         begin_idx = int(edge_index[0, j])
+        # edge_index[1] 存着所有键的终点
         end_idx = int(edge_index[1, j])
+        
+        #从键的特征array中提取键类型和键方向的index
         bond_type_idx, bond_dir_idx = edge_attr[j]
+        
+        #用键的
+
         bond_type = allowable_features['possible_bonds'][bond_type_idx]
         bond_dir = allowable_features['possible_bond_dirs'][bond_dir_idx]
         mol.AddBond(begin_idx, end_idx, bond_type)
