@@ -195,6 +195,7 @@ def graph_data_obj_to_mol_simple(data_x, data_edge_index, data_edge_attr):
     :param: data_edge_attr
     :return:
     """
+    #RWMol()用于分子的读写，在修改分子方面性能更好。提供一个可活动的分子并且共享mol对象的操作接口，修改完毕后用GetMol()获得最终的分子。
     mol = Chem.RWMol()
 
     # atoms
