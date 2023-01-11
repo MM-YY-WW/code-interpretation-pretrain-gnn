@@ -126,9 +126,11 @@ def mol_to_graph_data_obj_simple(mol):
     x = torch.tensor(np.array(atom_features_list), dtype=torch.long)
 
     # bonds
-    #对于化学键来说
+    #对于化学键来说也有两个特征，键的类型和键的方向
     num_bond_features = 2   # bond type, bond direction
+    #遍历rdkit分子中的化学键
     if len(mol.GetBonds()) > 0: # mol has bonds
+        #键一个键的列表
         edges_list = []
         edge_features_list = []
         for bond in mol.GetBonds():
