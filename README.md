@@ -2,7 +2,7 @@
 Code interpretation in Chinese of paper "strategies for pre-training graph neural networks"
 
 ## /Chem Progress
-- [ ] loader.py(on progress)
+- [ ] loader.py(in progress)
 - [ ] batch.py
 - [ ] dataloader.py
 - [ ] finetune.py
