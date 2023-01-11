@@ -126,6 +126,7 @@ def mol_to_graph_data_obj_simple(mol):
     x = torch.tensor(np.array(atom_features_list), dtype=torch.long)
 
     # bonds
+    #对于化学键来说
     num_bond_features = 2   # bond type, bond direction
     if len(mol.GetBonds()) > 0: # mol has bonds
         edges_list = []
