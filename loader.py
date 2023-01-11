@@ -128,11 +128,13 @@ def mol_to_graph_data_obj_simple(mol):
     # bonds
     #对于化学键来说也有两个特征，键的类型和键的方向
     num_bond_features = 2   # bond type, bond direction
-    #遍历rdkit分子中的化学键
+    #如果一个分子中有键的话
     if len(mol.GetBonds()) > 0: # mol has bonds
-        #键一个键的列表
-        edges_list = []
+        #建一个键的列表
+        edges_list = []、
+        #建一个键的特征的列表
         edge_features_list = []
+        #遍历rdkit分子中的化学键
         for bond in mol.GetBonds():
             i = bond.GetBeginAtomIdx()
             j = bond.GetEndAtomIdx()
