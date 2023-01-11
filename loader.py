@@ -5,7 +5,11 @@ import collections
 import math
 import pandas as pd
 import numpy as np
+
+#有四种基本的图的类型： Graph无向图， DiGraph有向图， MultiGraph多重无向图，MultiDiGraph多重有向图
 import networkx as nx
+
+
 from rdkit import Chem
 from rdkit.Chem import Descriptors
 from rdkit.Chem import AllChem
@@ -245,15 +249,22 @@ def graph_data_obj_to_mol_simple(data_x, data_edge_index, data_edge_attr):
         #从键的特征array中提取键类型和键方向的index
         bond_type_idx, bond_dir_idx = edge_attr[j]
         
-        #用键的
-
+        #用键类型的index去最前面建的字典里面提取键的类型
         bond_type = allowable_features['possible_bonds'][bond_type_idx]
+        
+        #用键的方向的index从最前面建的字典里面提取键的方向
         bond_dir = allowable_features['possible_bond_dirs'][bond_dir_idx]
+        
+        #将键和键的信息放到rdkit分子中
         mol.AddBond(begin_idx, end_idx, bond_type)
+        
         # set bond direction
+        #将刚才存进去的键提取出来
         new_bond = mol.GetBondBetweenAtoms(begin_idx, end_idx)
+        #再把存好的键的方向加上
         new_bond.SetBondDir(bond_dir)
 
+    # 用Chem.SanitizeMol(mol)可以将键的类型restore成芳香键
     # Chem.SanitizeMol(mol) # fails for COC1=CC2=C(NC(=N2)[S@@](=O)CC2=NC=C(
     # C)C(OC)=C2C)C=C1, when aromatic bond is possible
     # when we do not have aromatic bonds
@@ -262,6 +273,8 @@ def graph_data_obj_to_mol_simple(data_x, data_edge_index, data_edge_attr):
     return mol
 
 def graph_data_obj_to_nx_simple(data):
+    #将为pytorch geometric准备的Data object转化成network x data object（这是个什么obj？）
+    #这里面说nx obj是无向的所以可能会出现问题，但是nx obj其实也可以做成有向的呀
     """
     Converts graph Data object required by the pytorch geometric package to
     network x data object. NB: Uses simplified atom and bond features,
@@ -270,31 +283,49 @@ def graph_data_obj_to_nx_simple(data):
     :param data: pytorch geometric Data object
     :return: network x object
     """
+    #创建一个无向图
     G = nx.Graph()
 
     # atoms
+    #将原子的特征tensor转化为numpy array [原子数, 2]
     atom_features = data.x.cpu().numpy()
+    #获得原子的数量
     num_atoms = atom_features.shape[0]
+    #遍历原子
     for i in range(num_atoms):
+        #获得原子序数的index和原子手性标签的index
         atomic_num_idx, chirality_tag_idx = atom_features[i]
+        #将这个存成无向图的一个节点， i是节点index，俩index直接存就行了？这么正好吗
         G.add_node(i, atom_num_idx=atomic_num_idx, chirality_tag_idx=chirality_tag_idx)
+        #pass是占位符，不做任何事情
         pass
 
     # bonds
+    #处理键
+    #从tensor变成numpy array [2, 键数*2]
     edge_index = data.edge_index.cpu().numpy()
+    #从tensor变成numpy array [键数*2, 2]
     edge_attr = data.edge_attr.cpu().numpy()
+    #取键的数量
     num_bonds = edge_index.shape[1]
+    #遍历不重复的键
     for j in range(0, num_bonds, 2):
+        #获得键的起始原子的index
         begin_idx = int(edge_index[0, j])
+        #获得键的结束原子的index
         end_idx = int(edge_index[1, j])
+        #获得键的类型和方向的index
         bond_type_idx, bond_dir_idx = edge_attr[j]
+        #如果nx图中的这两个原子之间没有边
         if not G.has_edge(begin_idx, end_idx):
+            #那就创建一条边，将起始原子index， 终止原子index，键的类型，键的方向都输入进去
             G.add_edge(begin_idx, end_idx, bond_type_idx=bond_type_idx,
                        bond_dir_idx=bond_dir_idx)
 
     return G
 
 def nx_to_graph_data_obj_simple(G):
+    #将nx图转换回pytroch geometric所需要的Data obj
     """
     Converts nx graph to pytorch geometric Data object. Assume node indices
     are numbered from 0 to num_nodes - 1. NB: Uses simplified atom and bond
@@ -305,35 +336,56 @@ def nx_to_graph_data_obj_simple(G):
     :return: pytorch geometric Data object
     """
     # atoms
+    #原子还是有两个特征，原子类型和手性标签
     num_atom_features = 2  # atom type,  chirality tag
+    #创建原子的特征序列
     atom_features_list = []
+    
+    #遍历nx图中的节点，为什么要有一个_？
     for _, node in G.nodes(data=True):
+        #将节点里存的原子序数的index和手性标签的index存成[2]的array
         atom_feature = [node['atom_num_idx'], node['chirality_tag_idx']]
+        #再将小array存到特征序列里面去
         atom_features_list.append(atom_feature)
+    #最后对原子特征序列建一个x的tensor [原子数，2]
     x = torch.tensor(np.array(atom_features_list), dtype=torch.long)
 
     # bonds
+    #处理键，键也有两个特征，键的类型和键的方向
     num_bond_features = 2  # bond type, bond direction
+    #如果nx图中有边的话
     if len(G.edges()) > 0:  # mol has bonds
+        #建一个存键的list
         edges_list = []
+        #建一个存键的特征的list
         edge_features_list = []
+        #遍历nx图中的边 i是起始原子的index，j是终止原子的index，edge里面存着边的类型和方向
         for i, j, edge in G.edges(data=True):
+            #将一条边的特征建成[2]的array[键类型index，键方向index]
             edge_feature = [edge['bond_type_idx'], edge['bond_dir_idx']]
+            #将键正着存一遍到键list中
             edges_list.append((i, j))
+            #将一条键的特征存到键特征list中
             edge_features_list.append(edge_feature)
+            #反着存一遍
             edges_list.append((j, i))
+            #键的特征也再存一遍
             edge_features_list.append(edge_feature)
+            
 
         # data.edge_index: Graph connectivity in COO format with shape [2, num_edges]
+        #键的起止点们存成tensor，可能在geometic Data里面这个就会变成COO format吧，这里是看不出来为什么是COO
         edge_index = torch.tensor(np.array(edges_list).T, dtype=torch.long)
 
         # data.edge_attr: Edge feature matrix with shape [num_edges, num_edge_features]
+        #键的特征也列表也存成tensor
         edge_attr = torch.tensor(np.array(edge_features_list),
                                  dtype=torch.long)
     else:   # mol has no bonds
+        #如果图中没有边的话存两个empty tensor
         edge_index = torch.empty((2, 0), dtype=torch.long)
         edge_attr = torch.empty((0, num_bond_features), dtype=torch.long)
-
+    #最后将原子tensor x，键的起止点tensor， 键的特征tensor 输入geometric的Data()得到最终结果
     data = Data(x=x, edge_index=edge_index, edge_attr=edge_attr)
 
     return data
