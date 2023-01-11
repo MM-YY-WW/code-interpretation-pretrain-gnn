@@ -122,7 +122,7 @@ def mol_to_graph_data_obj_simple(mol):
         #然后将得出的所有原子的二维小feature放到前面建的list里面
         atom_features_list.append(atom_feature)
         
-    #之后为原子的特征建一个tensor x， 里面是type为long的 [2,原子数] 的array
+    #之后为原子的特征建一个tensor x， 里面是type为long的 [原子数, 2] 的array
     x = torch.tensor(np.array(atom_features_list), dtype=torch.long)
 
     # bonds
@@ -136,18 +136,29 @@ def mol_to_graph_data_obj_simple(mol):
         edge_features_list = []
         #遍历rdkit分子中的化学键
         for bond in mol.GetBonds():
+            #分子中的键是有方向的
             i = bond.GetBeginAtomIdx()
             j = bond.GetEndAtomIdx()
+            #获取可能的键的类型的index和代表化学键方向的index
             edge_feature = [allowable_features['possible_bonds'].index(
                 bond.GetBondType())] + [allowable_features[
                                             'possible_bond_dirs'].index(
                 bond.GetBondDir())]
+            
+            #以下几行难道是说这个键没有方向吗？为什么正序倒序都要存？直接存成无向图不就好了？反正键的特征是一样的？
+            #将键的起止点正序存到键的列表中
             edges_list.append((i, j))
+            #将键的特征存入键的特征列表
             edge_features_list.append(edge_feature)
+            #将键的起止点倒序存入键的列表
             edges_list.append((j, i))
+            #把键的特征往键的列表里再存一遍
             edge_features_list.append(edge_feature)
-
+            
+          
+        #C00 format由三个array组成，第一个array存的是matrix中所有非零的值（从上到下，从左到右），第二个存的是这些值的row indexes，第三个array存的是这些值的column indexes
         # data.edge_index: Graph connectivity in COO format with shape [2, num_edges]
+        #edge list是[键数*2, 2]的array， T一下就是[2, 键数*2]的array,这个为什么能代表图的连通性connectivity呢，这不是只有一个array吗为什么说是COO format（Coordinate format）的呢？一定要用long来存吗？
         edge_index = torch.tensor(np.array(edges_list).T, dtype=torch.long)
 
         # data.edge_attr: Edge feature matrix with shape [num_edges, num_edge_features]
