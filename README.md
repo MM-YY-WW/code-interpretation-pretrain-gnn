@@ -5,7 +5,7 @@ Code interpretation in Chinese of paper "strategies for pre-training graph neura
 - [ ] loader.py(in progress)
 - [ ] batch.py
 - [ ] dataloader.py
-- [ ] finetune.py
+- [ ] finetune.py (in progress)
 - [ ] finetune_mutag_ptc.py
 - [ ] model.py
 - [ ] parse_result.py
