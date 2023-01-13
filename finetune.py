@@ -41,45 +41,71 @@ criterion = nn.BCEWithLogitsLoss(reduction = "none")
 #train函数，传入argparse里面写的args，选好的model，device，数据的loader和optimizer
 def train(args, model, device, loader, optimizer):
     model.train()
-
+    
     for step, batch in enumerate(tqdm(loader, desc="Iteration")):
+        #loader里面加载进来的东西都给他传到device上
         batch = batch.to(device)
+        #batch里面有：原子信息x，键的起止点信息edge index， 和键的信息edge attr
         pred = model(batch.x, batch.edge_index, batch.edge_attr, batch.batch)
+        #view()可以在不复制memory的情况下改变tensor的大小，跟numpy的reshape()差不多，就是把原先batch里面存的label改成跟现在的预测结果一样的大小，并且把数据类型设置成float64
         y = batch.y.view(pred.shape).to(torch.float64)
 
         #Whether y is non-null or not.
+        # 用label的平方大于零这个条件来判断label有没有缺失=
         is_valid = y**2 > 0
+        
         #Loss matrix
+        #这里的loss function用的是前面定义的BCEWithLogistsLoss(),第一维输入pred出得值，要转化成double，第二个输入label+1/2是为啥呢，我还没看到loader里面用y的部分
         loss_mat = criterion(pred.double(), (y+1)/2)
-        #loss matrix after removing null target
-        loss_mat = torch.where(is_valid, loss_mat, torch.zeros(loss_mat.shape).to(loss_mat.device).to(loss_mat.dtype))
-            
-        optimizer.zero_grad()
-        loss = torch.sum(loss_mat)/torch.sum(is_valid)
-        loss.backward()
 
+        #loss matrix after removing null target在去掉缺失的label的之后再算一次loss，那如果上面的y是null的话它不会报错吗？难道说+1是为了不报错吗
+        #torch.where() 第一个input是条件，第二个是符合条件时返回的结果，第三个是不符合条件时返回的结果。这里条件时上面用标签的平方是否等于0来算的这个标签是否是空的
+        #如果不为空，那么这个loss就是上面算出来的loss，如果为空，那么就建一个和loss mat一样大小和数据类型的的的全零tensor并且上传到device上面去
+        loss_mat = torch.where(is_valid, loss_mat, torch.zeros(loss_mat.shape).to(loss_mat.device).to(loss_mat.dtype))
+        
+        #将上次的梯度值清零
+        optimizer.zero_grad()
+        #计算平均loss，就是将所有loss加起来除以有loss不为空的数量
+        loss = torch.sum(loss_mat)/torch.sum(is_valid)
+        #反向传播计算得到每个参数的梯度值
+        loss.backward()
+        
+        #执行一次优化步骤，通过梯梯度下想法来更新参数的值。optimizer只负责通过梯度下降进行优化，不负责产生梯度
         optimizer.step()
 
 
 def eval(args, model, device, loader):
+    #不改变参数
     model.eval()
+    #存ground truth label的array
     y_true = []
+    #存预测结果的array
     y_scores = []
 
     for step, batch in enumerate(tqdm(loader, desc="Iteration")):
+        #还是将batch里的值先传到device上
         batch = batch.to(device)
-
+        
+        #不改变梯度
         with torch.no_grad():
+            #进行预测
             pred = model(batch.x, batch.edge_index, batch.edge_attr, batch.batch)
-
+            
+            
+        #将label的tensor改成跟预测值一样的大小然后存到array里面
         y_true.append(batch.y.view(pred.shape))
+        #将预测值存起来
         y_scores.append(pred)
-
+    
+    #将什么什么拼在一起？然后把tensor转成np array
     y_true = torch.cat(y_true, dim = 0).cpu().numpy()
     y_scores = torch.cat(y_scores, dim = 0).cpu().numpy()
 
+    #记录auc的列表
     roc_list = []
+    #这里一直缺失一个知识就是pred出来的维度是多少，y label之前的维度又是多少
     for i in range(y_true.shape[1]):
+        
         #AUC is only defined when there is at least one positive data.
         if np.sum(y_true[:,i] == 1) > 0 and np.sum(y_true[:,i] == -1) > 0:
             is_valid = y_true[:,i]**2 > 0
