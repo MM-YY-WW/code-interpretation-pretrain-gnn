@@ -9,10 +9,14 @@ import numpy as np
 #有四种基本的图的类型： Graph无向图， DiGraph有向图， MultiGraph多重无向图，MultiDiGraph多重有向图
 import networkx as nx
 
-
+#Chem负责基础常用的化学功能，比如读写分子，子结构搜索，分子美化等
 from rdkit import Chem
+
 from rdkit.Chem import Descriptors
+
+#AllChem 负责高级但是不常用的化学功能，区分他们的目的是为了加速载入速度，同时也可以简化使用
 from rdkit.Chem import AllChem
+
 from rdkit import DataStructs
 from rdkit.Chem.rdMolDescriptors import GetMorganFingerprintAsBitVect
 from torch.utils import data
@@ -416,21 +420,30 @@ def create_standardized_mol_id(smiles):
     :param smiles:
     :return: inchi
     """
-    
+    #如果这个SMILES可以生成rdkit分子的话
     if check_smiles_validity(smiles):
         # remove stereochemistry
+        # 去除立体化学（有机化学的主要内容，研究有机物在三维空间内的结构与变化的化学分枝，由于化学键往往不是在二维平面上伸展的，于是就产生了相应的异构现象
+        #AllChem负责高级但是不常用的化学功能，isomericSmiles True的话生成的rdkit分子就包含SMILES中存着的立体化学信息，Flase的话就去掉了
         smiles = AllChem.MolToSmiles(AllChem.MolFromSmiles(smiles),
                                      isomericSmiles=False)
+        #然后再将去掉了立体化学信息的SMILES转化成rdkit分子
         mol = AllChem.MolFromSmiles(smiles)
+        #如果转化成功的话
         if mol != None: # to catch weird issue with O=C1O[al]2oc(=O)c3ccc(cn3)c3ccccc3c3cccc(c3)c3ccccc3c3cc(C(F)(F)F)c(cc3o2)-c2ccccc2-c2cccc(c2)-c2ccccc2-c2cccnc21
+            #如果有不同种类的SMILES生成的话，选最大的那个分子
             if '.' in smiles: # if multiple species, pick largest molecule
+                # 先获取不同species的rdkit分子表
                 mol_species_list = split_rdkit_mol_obj(mol)
+                #选出那个拥有原子数最多的分子
                 largest_mol = get_largest_mol(mol_species_list)
+                #inchi = international chemical identifier 国际化学表示符
                 inchi = AllChem.MolToInchi(largest_mol)
             else:
                 inchi = AllChem.MolToInchi(mol)
             return inchi
         else:
+            #return 后面还可以不写东西噢
             return
     else:
         return
@@ -1445,21 +1458,27 @@ def check_smiles_validity(smiles):
         return False
 
 def split_rdkit_mol_obj(mol):
+    #具体来讲什么是分子的species？这个方程就是将那个结果给他分割开形成一个array （原先 species1.species2.species3 变成 [species1, species2, species3]) 
+    #是SMILES会有不同的species用.隔开，不是mol里面，注释有问题
     """
     Split rdkit mol object containing multiple species or one species into a
     list of mol objects or a list containing a single object respectively
     :param mol:
     :return:
     """
+    #先从rdkit分子生成一个包含立体结构信息的SMILES
     smiles = AllChem.MolToSmiles(mol, isomericSmiles=True)
+    #再将SMILES里面的不同species分出来
     smiles_list = smiles.split('.')
     mol_species_list = []
+    #对于每一个species的SMILES，如果这个SMILES能转化成rdkit分子，那就将它存进rdkit分子的list
     for s in smiles_list:
         if check_smiles_validity(s):
             mol_species_list.append(AllChem.MolFromSmiles(s))
     return mol_species_list
 
 def get_largest_mol(mol_list):
+    #给定一个rdkit分子的list，选出含有原子数最多的那个分子，如果一样多就选排在前面的那个
     """
     Given a list of rdkit mol objects, returns mol object containing the
     largest num of atoms. If multiple containing largest num of atoms,
@@ -1467,8 +1486,11 @@ def get_largest_mol(mol_list):
     :param mol_list:
     :return:
     """
+    #对于每一个mol GetAtoms()数一下原子就好了
     num_atoms_list = [len(m.GetAtoms()) for m in mol_list]
+    #得到拥有最多原子的分子的index
     largest_mol_idx = num_atoms_list.index(max(num_atoms_list))
+    #返回这个选中的分子
     return mol_list[largest_mol_idx]
 
 def create_all_datasets():
