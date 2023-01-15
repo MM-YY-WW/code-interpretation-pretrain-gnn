@@ -391,24 +391,32 @@ def nx_to_graph_data_obj_simple(G):
     return data
 
 def get_gasteiger_partial_charges(mol, n_iter=12):
+    #这个gasteiger partial charge是用两个阶段来分配电荷的算法，在第一阶段，给分子中的每个原子分配一个种子电荷。在第二阶段中，这些局部电荷开始沿着
+    #与原子连接的键移动，移动方向取决于键两端所连接分子的电负性（electronegativities）。然后用relaxation算法进行迭代来调整电荷分配（默认迭代八次）
+    #OpenEye不建议将这样计算出来的电荷模型用于分子间的相互左右。 Johann Gasteiger发明这个算法是用来比较不用分子结构下相关的官能团的相对reactivity
     """
     Calculates list of gasteiger partial charges for each atom in mol object.
     :param mol: rdkit mol object
-    :param n_iter: number of iterations. Default 12
+    :param n_iter: number of iterations. Default 12 
     :return: list of computed partial charges for each atom.
     """
+    
+    #从rdkit里面调取写好的算法，输入有三个：1.rdkit分子，2.迭代次数，3.如果找不到原子的参数，是否报错，False的话未知原子的所有参数都设置为零，具有从迭代中删除该原子的效果
     Chem.rdPartialCharges.ComputeGasteigerCharges(mol, nIter=n_iter,
                                                   throwOnParamFailure=True)
+    #对于rdkit分子中的每一个原子，获取这个原子的gasteigercharge，放到一个array里面
     partial_charges = [float(a.GetProp('_GasteigerCharge')) for a in
                        mol.GetAtoms()]
+    #就完事了
     return partial_charges
 
 def create_standardized_mol_id(smiles):
+    #这个方程用于生成标准化的rdkit分子id
     """
-
     :param smiles:
     :return: inchi
     """
+    
     if check_smiles_validity(smiles):
         # remove stereochemistry
         smiles = AllChem.MolToSmiles(AllChem.MolFromSmiles(smiles),
@@ -1426,6 +1434,7 @@ def _load_chembl_with_labels_dataset(root_path):
 # root_path = 'dataset/chembl_with_labels'
 
 def check_smiles_validity(smiles):
+    #用于检测SMILES有效性的，能生成rdkit分子的就是True不能就是False
     try:
         m = Chem.MolFromSmiles(smiles)
         if m:
