@@ -12,6 +12,7 @@ import networkx as nx
 #Chem负责基础常用的化学功能，比如读写分子，子结构搜索，分子美化等
 from rdkit import Chem
 
+#分子性质也被称为描述符，descriptors包含了大量的分子描述符的计算方法
 from rdkit.Chem import Descriptors
 
 #AllChem 负责高级但是不常用的化学功能，区分他们的目的是为了加速载入速度，同时也可以简化使用
@@ -448,16 +449,25 @@ def create_standardized_mol_id(smiles):
     else:
         return
 
+#这是个dataset的类
 class MoleculeDataset(InMemoryDataset):
+    #初始化
     def __init__(self,
+                 #这个dataset保存在哪个根目录下，应该包含一个raw文件夹（里面有含有SMILES的文件），一个processed文件夹（可以是空的也可以是上一次process完的文件）
                  root,
                  #data = None,
                  #slices = None,
+                 #一个方程，输入geometric Data obj，输出一个transformed版本，每次access前这个data obj都会被transform
                  transform=None,
+                 #同上，只是在存到disk之前被transform
                  pre_transform=None,
+                 #输入一个geometric Data，返回一个boolean，表示了这个geometric Data是否应该留在最终的dataset中
                  pre_filter=None,
+                 #数据集的名字
                  dataset='zinc250k',
+                 #如果True的话不会加载Data obj
                  empty=False):
+        #这个没有下载数据集的功能
         """
         Adapted from qm9.py. Disabled the download functionality
         :param root: directory of the dataset, containing a raw and processed
@@ -469,20 +479,36 @@ class MoleculeDataset(InMemoryDataset):
         :param empty: if True, then will not load any data obj. For
         initializing empty dataset
         """
+        
         self.dataset = dataset
         self.root = root
-
+        #讲的不错的blog，可以跑一下试试
+        #https://blog.csdn.net/wo198711203217/article/details/84097274
+        #在类的继承中，如果重新定义某个方法，该方法会覆盖父类的同名方法，但有时我们希望能同时实现父类的功能，这个时候我们就需要调用父类的方法了
+        #super最常见的一个用法就是在子类中调用父类初始化的方法
+        #def super(cls, inst):
+        #获取inst的MRO列表
+        #    mro = inst.__class__.mro()
+        #查找cls在当前MRO列表中的index，并返回他的下一个类
+        #    return mro[mro.index(cls)+1]
+        #cls 代表类，inst代表实例，
         super(MoleculeDataset, self).__init__(root, transform, pre_transform,
                                                  pre_filter)
+        #这些继承的是InMemoryDataset的值
         self.transform, self.pre_transform, self.pre_filter = transform, pre_transform, pre_filter
 
+        #如果empty不是True的话
         if not empty:
+            #self.processed_paths是在下面的def中定义的，这里还不知道讲了啥？
             self.data, self.slices = torch.load(self.processed_paths[0])
 
-
+    #用来获取geometric data的def
     def get(self, idx):
+        #先创建一个空的geometric Data obj
         data = Data()
+        #对于data中的key来说，这个key存了什么？
         for key in self.data.keys:
+            #从data里面按照key获取item，先看后面的####
             item, slices = self.data[key], self.slices[key]
             s = list(repeat(slice(None), item.dim()))
             s[data.cat_dim(key, item)] = slice(slices[idx],
@@ -490,58 +516,94 @@ class MoleculeDataset(InMemoryDataset):
             data[key] = item[s]
         return data
 
-
+    #python内置的装饰器，可以讲一个方法变成属性来调用，后面不用加()，创建只读属性
+    #由于python进行属性的定义时，没办法设置私有属性，因此要通过@property的方法来进行设置，这样可以隐藏属性名，让用户进行使用的时候无法随意修改
+    #。 相当于用了一个调用def来封装了原本的属性名
     @property
+    #原先的文件名
     def raw_file_names(self):
+        #获取系统中的文件名列表
         file_name_list = os.listdir(self.raw_dir)
+        #认为我们的文件下只有一个raw 文件
         # assert len(file_name_list) == 1     # currently assume we have a
         # # single raw file
         return file_name_list
-
+    
+    #定义一个文件名用来处理完的geometric data obj
     @property
     def processed_file_names(self):
         return 'geometric_data_processed.pt'
-
+    
+    #这个方程就是专门用来说这个类不能从网上下载，要直接把数据放到目标文件夹中
     def download(self):
         raise NotImplementedError('Must indicate valid location of raw data. '
                                   'No download allowed')
-
+    #
     def process(self):
+        #创建一个存SMILES的列表
         data_smiles_list = []
+        #创建一个存obj的列表？
         data_list = []
-
+        
+        #这个zinc_standard_agent代表了什么
         if self.dataset == 'zinc_standard_agent':
+            #输入的路径就是raw文件夹下面的第一个文件（csv格式）
             input_path = self.raw_paths[0]
+            #读取这个csv到dataframe里面去，这个csv 的sep = ‘/t’，数据类型是string
+            #compression是可以读取压缩文件的，有{'infer','gzip','bz2','zip','xz',None}这几种，默认是infer
             input_df = pd.read_csv(input_path, sep=',', compression='gzip',
                                    dtype='str')
+            #把读到的csv里面的‘smiles’单独存成list
             smiles_list = list(input_df['smiles'])
+            #这种类型的csv里面还含有zinc_id，这个是这类dataset特定的嘛？
             zinc_id_list = list(input_df['zinc_id'])
+            #遍历这个数据集
             for i in range(len(smiles_list)):
+                #遍历的时候把到第几位了打印出来
                 print(i)
+                #s是一条数据中的SMILES，
                 s = smiles_list[i]
+                #每个sample中只含有原子数量最多的那个specie，还是没搞明白分子的species是什么
                 # each example contains a single species
+                
+                #try是用来验证这段代码报不报错的
+                #except是用来处理报错的
+                #else当代码不报错的时候运行代码
+                #finally是不管try和expect，运行代码
                 try:
+                    #生成rdkit分子
                     rdkit_mol = AllChem.MolFromSmiles(s)
+                    #如果能生成的话
                     if rdkit_mol != None:  # ignore invalid mol objects
                         # # convert aromatic bonds to double bonds
                         # Chem.SanitizeMol(rdkit_mol,
                         #                  sanitizeOps=Chem.SanitizeFlags.SANITIZE_KEKULIZE)
+                        #就将这个rdkit分子转化成geometric的Data obj
                         data = mol_to_graph_data_obj_simple(rdkit_mol)
                         # manually add mol id
+                        #然后再手动添加上它的分子id，
+                        #lstrip()用来截掉字符串左边的空格或者指定字符，这里是截掉开头的0
                         id = int(zinc_id_list[i].split('ZINC')[1].lstrip('0'))
+                        #将id转化成tensor
                         data.id = torch.tensor(
                             [id])  # id here is zinc id value, stripped of
                         # leading zeros
+                        #将geometric data加在data列表里
                         data_list.append(data)
+                        #把相应的SMIELS加在smiles的列表里
                         data_smiles_list.append(smiles_list[i])
                 except:
+                    #如果上面那段不报错就继续执行
                     continue
-
+        
+        #如果dataset是属于另一种的话
         elif self.dataset == 'chembl_filtered':
             ### get downstream test molecules.
+            #引入scaffold split
             from splitters import scaffold_split
 
             ### 
+            #存了一堆数据集的文件夹名字，后面要遍历这些名字
             downstream_dir = [
             'dataset/bace',
             'dataset/bbbp',
@@ -556,116 +618,174 @@ class MoleculeDataset(InMemoryDataset):
             'dataset/tox21',
             'dataset/toxcast'
             ]
-
+            
+            #建一个空set（）
             downstream_inchi_set = set()
+            #遍历上面写的那一串路径
             for d_path in downstream_dir:
                 print(d_path)
+                #数据集的名字是/后面的那个所以是split[1]
                 dataset_name = d_path.split('/')[1]
+                #路径就是上面array里的某一个元素，dataset name是/后面跟着的东西，这里再创建一个MoleculeDataset obj
                 downstream_dataset = MoleculeDataset(d_path, dataset=dataset_name)
+                #下面用的SMILES是读取了处理之后的SMILES，使其变成一个list
                 downstream_smiles = pd.read_csv(os.path.join(d_path,
                                                              'processed', 'smiles.csv'),
                                                 header=None)[0].tolist()
-
+                #在assert后面的判断为False的时候触发异常
                 assert len(downstream_dataset) == len(downstream_smiles)
-
+                
+                #从deepchem的splitters里面引入的scaffold_split方程，
+                #输入：1. 一个dataset，最低要保证些啥呢 2.SMILES的list，3.task的id？ 4. null_value设置成什么的意思吗
+                #5. train valid test的比例，6.是否返回SMILES
+                #输出有四个值？前三个不要，后面的是按比例分好的三个集的SMILES
+                
+                
                 _, _, _, (train_smiles, valid_smiles, test_smiles) = scaffold_split(downstream_dataset, downstream_smiles, task_idx=None, null_value=0,
                                    frac_train=0.8,frac_valid=0.1, frac_test=0.1,
                                    return_smiles=True)
 
                 ### remove both test and validation molecules
+                #把test和valid的smiles存到一个里面后面用
                 remove_smiles = test_smiles + valid_smiles
-
+                #创建一个存id的list
                 downstream_inchis = []
+                #遍历上面的test和vaild的smiles
                 for smiles in remove_smiles:
+                    #分出不同的species
                     species_list = smiles.split('.')
+                    #遍历所有的species并记录他们的inchi，而不只是原子数最多的那个分子的inchi
                     for s in species_list:  # record inchi for all species, not just
                      # largest (by default in create_standardized_mol_id if input has
                      # multiple species)
                         inchi = create_standardized_mol_id(s)
                         downstream_inchis.append(inchi)
+                #update这个set就是把（）里面的值加到set里面去
                 downstream_inchi_set.update(downstream_inchis)
-
+            #这个是个啥写法，大概意思就是加载raw文件夹中的数据集了，返回SMILES列表，rakit分子，啥？，和标签
             smiles_list, rdkit_mol_objs, folds, labels = \
                 _load_chembl_with_labels_dataset(os.path.join(self.root, 'raw'))
-
+            
+            #打印一下开始处理了
             print('processing')
+            #遍历取到的rdkit分子：
             for i in range(len(rdkit_mol_objs)):
+                #打印一下进行到哪里了
                 print(i)
+                #单独取一个出来
                 rdkit_mol = rdkit_mol_objs[i]
+                #如果有rdkit分子值的话
                 if rdkit_mol != None:
                     # # convert aromatic bonds to double bonds
                     # Chem.SanitizeMol(rdkit_mol,
                     #                  sanitizeOps=Chem.SanitizeFlags.SANITIZE_KEKULIZE)
+                    #计算分子的摩尔质量
                     mw = Descriptors.MolWt(rdkit_mol)
+                    #如果摩尔质量大于50小于900
                     if 50 <= mw <= 900:
+                        #就正常的计算一个inchi
                         inchi = create_standardized_mol_id(smiles_list[i])
+                        #如果出来结果了并且结果没有跟已有的inchi重复的话
                         if inchi != None and inchi not in downstream_inchi_set:
+                            #就将这个rdkit分子转化成geometric Data obj
                             data = mol_to_graph_data_obj_simple(rdkit_mol)
                             # manually add mol id
+                            #然后在将分子在数据集中的index当作id。转化成tensor
                             data.id = torch.tensor(
                                 [i])  # id here is the index of the mol in
                             # the dataset
+                            #将label加到geometric Data obj里面
+                            #[行，列]，冒号表示取所有值，有数字的话代表第几位之后的，或者冒号两边有数字的话代表一个取值范围
+                            #这里就是取了第i行所有的值，但是说实在的前面labels的标签只取了labels这一个column呀，难道做数据集的时候需要把所有label放到这一个column里面吗
                             data.y = torch.tensor(labels[i, :])
                             # fold information
+                            #这个折信息又是什么
+                            #如果i属于第一个fold的话
                             if i in folds[0]:
+                                #geometric Data obj里面的tensor就是0
                                 data.fold = torch.tensor([0])
                             elif i in folds[1]:
+                                #在1tensor就存1
                                 data.fold = torch.tensor([1])
                             else:
+                                #其他的tensor就存成2
                                 data.fold = torch.tensor([2])
+                            #然后把处理好的data放到data列表里面去
                             data_list.append(data)
+                            #处理好的SMILES也放到列里面
                             data_smiles_list.append(smiles_list[i])
-
+        #下面是对于单个数据集的处理方式
+        #对于tox21来说
         elif self.dataset == 'tox21':
+            #加载路径raw文件下的tox数据们
             smiles_list, rdkit_mol_objs, labels = \
                 _load_tox21_dataset(self.raw_paths[0])
+            #遍历所有的SMILES和分子
             for i in range(len(smiles_list)):
                 print(i)
+                #取出一个rdkit分子
                 rdkit_mol = rdkit_mol_objs[i]
                 ## convert aromatic bonds to double bonds
                 #Chem.SanitizeMol(rdkit_mol,
                                  #sanitizeOps=Chem.SanitizeFlags.SANITIZE_KEKULIZE)
+                #然后把rdkit分子转化成geometric Data obj
                 data = mol_to_graph_data_obj_simple(rdkit_mol)
                 # manually add mol id
+                #加上这个分子在数据集里的index当作这个sample的id
                 data.id = torch.tensor(
                     [i])  # id here is the index of the mol in
                 # the dataset
+                #把label加上
                 data.y = torch.tensor(labels[i, :])
+                #存起来
                 data_list.append(data)
                 data_smiles_list.append(smiles_list[i])
 
         elif self.dataset == 'hiv':
+            #加载数据们
             smiles_list, rdkit_mol_objs, labels = \
                 _load_hiv_dataset(self.raw_paths[0])
+            #遍历数据集
             for i in range(len(smiles_list)):
                 print(i)
+                
                 rdkit_mol = rdkit_mol_objs[i]
                 # # convert aromatic bonds to double bonds
                 # Chem.SanitizeMol(rdkit_mol,
                 #                  sanitizeOps=Chem.SanitizeFlags.SANITIZE_KEKULIZE)
+                #rdkit分子 转成geometric图
                 data = mol_to_graph_data_obj_simple(rdkit_mol)
                 # manually add mol id
+                #加id
                 data.id = torch.tensor(
                     [i])  # id here is the index of the mol in
                 # the dataset
+                #取label，这个label就只有一维，是几个task就有几维吗？
                 data.y = torch.tensor([labels[i]])
+                #存数据
                 data_list.append(data)
                 data_smiles_list.append(smiles_list[i])
 
         elif self.dataset == 'bace':
+            #读数据
             smiles_list, rdkit_mol_objs, folds, labels = \
                 _load_bace_dataset(self.raw_paths[0])
+            #遍历
             for i in range(len(smiles_list)):
                 print(i)
+               
                 rdkit_mol = rdkit_mol_objs[i]
                 # # convert aromatic bonds to double bonds
                 # Chem.SanitizeMol(rdkit_mol,
                 #                  sanitizeOps=Chem.SanitizeFlags.SANITIZE_KEKULIZE)
+                #转成geometric data
                 data = mol_to_graph_data_obj_simple(rdkit_mol)
                 # manually add mol id
+                #加id
                 data.id = torch.tensor(
                     [i])  # id here is the index of the mol in
-                # the dataset
+                # the dataset                #取
+                # the
                 data.y = torch.tensor([labels[i]])
                 data.fold = torch.tensor([folds[i]])
                 data_list.append(data)
