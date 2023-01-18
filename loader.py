@@ -784,8 +784,8 @@ class MoleculeDataset(InMemoryDataset):
                 #加id
                 data.id = torch.tensor(
                     [i])  # id here is the index of the mol in
-                # the dataset                #取
-                # the
+                # the dataset               
+                #取label，fold信息，这个fold到底是个啥吗
                 data.y = torch.tensor([labels[i]])
                 data.fold = torch.tensor([folds[i]])
                 data_list.append(data)
@@ -806,6 +806,7 @@ class MoleculeDataset(InMemoryDataset):
                     data.id = torch.tensor(
                         [i])  # id here is the index of the mol in
                     # the dataset
+                    #就一个task，没有fold信息
                     data.y = torch.tensor([labels[i]])
                     data_list.append(data)
                     data_smiles_list.append(smiles_list[i])
@@ -825,6 +826,7 @@ class MoleculeDataset(InMemoryDataset):
                     data.id = torch.tensor(
                         [i])  # id here is the index of the mol in
                     # the dataset
+                    #好多个task
                     data.y = torch.tensor(labels[i, :])
                     data_list.append(data)
                     data_smiles_list.append(smiles_list[i])
@@ -843,6 +845,7 @@ class MoleculeDataset(InMemoryDataset):
                 data.id = torch.tensor(
                     [i])  # id here is the index of the mol in
                 # the dataset
+                #一个task
                 data.y = torch.tensor([labels[i]])
                 data_list.append(data)
                 data_smiles_list.append(smiles_list[i])
@@ -861,6 +864,7 @@ class MoleculeDataset(InMemoryDataset):
                 data.id = torch.tensor(
                     [i])  # id here is the index of the mol in
                 # the dataset
+                #一个task
                 data.y = torch.tensor([labels[i]])
                 data_list.append(data)
                 data_smiles_list.append(smiles_list[i])
@@ -879,6 +883,7 @@ class MoleculeDataset(InMemoryDataset):
                 data.id = torch.tensor(
                     [i])  # id here is the index of the mol in
                 # the dataset
+                #一个task
                 data.y = torch.tensor([labels[i]])
                 data_list.append(data)
                 data_smiles_list.append(smiles_list[i])
@@ -897,6 +902,7 @@ class MoleculeDataset(InMemoryDataset):
                 data.id = torch.tensor(
                     [i])  # id here is the index of the mol in
                 # the dataset
+                #多个task
                 data.y = torch.tensor(labels[i, :])
                 data_list.append(data)
                 data_smiles_list.append(smiles_list[i])
@@ -915,42 +921,58 @@ class MoleculeDataset(InMemoryDataset):
                 data.id = torch.tensor(
                     [i])  # id here is the index of the mol in
                 # the dataset
+                #多task
                 data.y = torch.tensor(labels[i, :])
                 data_list.append(data)
                 data_smiles_list.append(smiles_list[i])
-
+        
+        #这个数据集又不一样了
         elif self.dataset == 'pcba_pretrain':
+            #提取数据
             smiles_list, rdkit_mol_objs, labels = \
                 _load_pcba_dataset(self.raw_paths[0])
+            #提取现有的inchi
             downstream_inchi = set(pd.read_csv(os.path.join(self.root,
                                                             'downstream_mol_inchi_may_24_2019'),
                                                sep=',', header=None)[0])
+            #遍历
             for i in range(len(smiles_list)):
                 print(i)
+                #如果有多个species就不考虑
                 if '.' not in smiles_list[i]:   # remove examples with
                     # multiples species
+                    
                     rdkit_mol = rdkit_mol_objs[i]
+                    #再测分子的摩尔质量，太大太小的都去掉
                     mw = Descriptors.MolWt(rdkit_mol)
                     if 50 <= mw <= 900:
+                        #用smiles自己生成一个inchi
                         inchi = create_standardized_mol_id(smiles_list[i])
+                        #如果可以生成且跟前面的不重复
                         if inchi != None and inchi not in downstream_inchi:
                             # # convert aromatic bonds to double bonds
                             # Chem.SanitizeMol(rdkit_mol,
                             #                  sanitizeOps=Chem.SanitizeFlags.SANITIZE_KEKULIZE)
+                            #变成geometric Data
                             data = mol_to_graph_data_obj_simple(rdkit_mol)
                             # manually add mol id
+                            #加id
                             data.id = torch.tensor(
                                 [i])  # id here is the index of the mol in
                             # the dataset
+                            #多task的label
                             data.y = torch.tensor(labels[i, :])
+                            #存
                             data_list.append(data)
                             data_smiles_list.append(smiles_list[i])
 
         # elif self.dataset == ''
 
         elif self.dataset == 'sider':
+            #加载数据
             smiles_list, rdkit_mol_objs, labels = \
                 _load_sider_dataset(self.raw_paths[0])
+            #遍历
             for i in range(len(smiles_list)):
                 print(i)
                 rdkit_mol = rdkit_mol_objs[i]
@@ -962,13 +984,16 @@ class MoleculeDataset(InMemoryDataset):
                 data.id = torch.tensor(
                     [i])  # id here is the index of the mol in
                 # the dataset
+                #多task
                 data.y = torch.tensor(labels[i, :])
                 data_list.append(data)
                 data_smiles_list.append(smiles_list[i])
 
         elif self.dataset == 'toxcast':
+            #加载
             smiles_list, rdkit_mol_objs, labels = \
                 _load_toxcast_dataset(self.raw_paths[0])
+            #遍历
             for i in range(len(smiles_list)):
                 print(i)
                 rdkit_mol = rdkit_mol_objs[i]
@@ -981,40 +1006,58 @@ class MoleculeDataset(InMemoryDataset):
                     data.id = torch.tensor(
                         [i])  # id here is the index of the mol in
                     # the dataset
+                    #多task
                     data.y = torch.tensor(labels[i, :])
                     data_list.append(data)
                     data_smiles_list.append(smiles_list[i])
 
         elif self.dataset == 'ptc_mr':
+            #这个是在tox21地下的一个任务吗
+            
             input_path = self.raw_paths[0]
+            #读进来，readcsv 输入中的names=[]可定义columns
             input_df = pd.read_csv(input_path, sep=',', header=None, names=['id', 'label', 'smiles'])
             smiles_list = input_df['smiles']
+            #dataframe.values返回dataframe的numpy表达形式
             labels = input_df['label'].values
+            #遍历
             for i in range(len(smiles_list)):
                 print(i)
+                #提取一个SMILES
                 s = smiles_list[i]
+                #转化成rdkit分子
                 rdkit_mol = AllChem.MolFromSmiles(s)
+                #如果转化成功了
                 if rdkit_mol != None:  # ignore invalid mol objects
                     # # convert aromatic bonds to double bonds
                     # Chem.SanitizeMol(rdkit_mol,
                     #                  sanitizeOps=Chem.SanitizeFlags.SANITIZE_KEKULIZE)
+                    #再转化成geometric Data
                     data = mol_to_graph_data_obj_simple(rdkit_mol)
                     # manually add mol id
+                    #加id
                     data.id = torch.tensor(
                         [i])
+                    #一个task的label
                     data.y = torch.tensor([labels[i]])
+                    #存
                     data_list.append(data)
                     data_smiles_list.append(smiles_list[i])
 
         elif self.dataset == 'mutag':
+            #加载SMILES路径
             smiles_path = os.path.join(self.root, 'raw', 'mutag_188_data.can')
             # smiles_path = 'dataset/mutag/raw/mutag_188_data.can'
+            #加载label路径
             labels_path = os.path.join(self.root, 'raw', 'mutag_188_target.txt')
             # labels_path = 'dataset/mutag/raw/mutag_188_target.txt'
+            #取得SMILES列表和label的列表
             smiles_list = pd.read_csv(smiles_path, sep=' ', header=None)[0]
             labels = pd.read_csv(labels_path, header=None)[0].values
+            #遍历
             for i in range(len(smiles_list)):
                 print(i)
+                #SMILES成功转rdkit分子之后再转geometric Data
                 s = smiles_list[i]
                 rdkit_mol = AllChem.MolFromSmiles(s)
                 if rdkit_mol != None:  # ignore invalid mol objects
@@ -1023,34 +1066,45 @@ class MoleculeDataset(InMemoryDataset):
                     #                  sanitizeOps=Chem.SanitizeFlags.SANITIZE_KEKULIZE)
                     data = mol_to_graph_data_obj_simple(rdkit_mol)
                     # manually add mol id
+                    #加id
                     data.id = torch.tensor(
                         [i])
+                    #一个task
                     data.y = torch.tensor([labels[i]])
                     data_list.append(data)
                     data_smiles_list.append(smiles_list[i])
                     
 
         else:
+            #如果没有上面提到的数据集名字就raise Err
             raise ValueError('Invalid dataset name')
-
+        #如果这个filter有东西的话
         if self.pre_filter is not None:
+            #将data list里面的所有geometric Data obj过一遍filter（）True留下False去掉
             data_list = [data for data in data_list if self.pre_filter(data)]
-
+        #如果transform有东西的话
         if self.pre_transform is not None:
+            #就把list里面所有data过一遍transform（）
             data_list = [self.pre_transform(data) for data in data_list]
-
+        #将处理之后的SMILES列表变成Series，用csv存起来
+        #Series是带标签的一维数组，其中的标签也可以叫做index
         # write data_smiles_list in processed paths
         data_smiles_series = pd.Series(data_smiles_list)
         data_smiles_series.to_csv(os.path.join(self.processed_dir,
                                                'smiles.csv'), index=False,
                                   header=False)
-
+        #collate就是pytorch的DataLoader需要传递的参数，把batchge
         data, slices = self.collate(data_list)
         torch.save((data, slices), self.processed_paths[0])
 
 # NB: only properly tested when dataset_1 is chembl_with_labels and dataset_2
 # is pcba_pretrain
+#
 def merge_dataset_objs(dataset_1, dataset_2):
+    #用来合并两个数据集中的obj，不管这个分子的identity，假定两个数据集都含有多个label，最终的label dimension会是两个数据集的dimension加起来那么大
+    #y1 1310 + y2 128
+    #0 1310 + y2 128
+    # y1 1310 + 0 128
     """
     Naively merge 2 molecule dataset objects, and ignore identities of
     molecules. Assumes both datasets have multiple y labels, and will pad
@@ -1061,28 +1115,37 @@ def merge_dataset_objs(dataset_1, dataset_2):
     :return: pytorch geometric dataset obj, with the x, edge_attr, edge_index,
     new y attributes only
     """
+    #先算出两个数据集的y的维度
     d_1_y_dim = dataset_1[0].y.size()[0]
     d_2_y_dim = dataset_2[0].y.size()[0]
-
+    #建一个空data列表
     data_list = []
     # keep only x, edge_attr, edge_index, padded_y then append
+    #遍历第一个数据集
     for d in dataset_1:
+        #原先的label先存一下
         old_y = d.y
+        #新的是老的后面接上len(y2)个零
         new_y = torch.cat([old_y, torch.zeros(d_2_y_dim, dtype=torch.long)])
+        #再将改好y的data放回去
         data_list.append(Data(x=d.x, edge_index=d.edge_index,
                               edge_attr=d.edge_attr, y=new_y))
-
+    #遍历第二个数据集
     for d in dataset_2:
+        #存旧y
         old_y = d.y
+        #新y再前面加上len(y1)个零
         new_y = torch.cat([torch.zeros(d_1_y_dim, dtype=torch.long), old_y.long()])
+        #将改好的data存回去
         data_list.append(Data(x=d.x, edge_index=d.edge_index,
                               edge_attr=d.edge_attr, y=new_y))
-
+    #新建一个dataset，随便选一个路径和数据集
     # create 'empty' dataset obj. Just randomly pick a dataset and root path
     # that has already been processed
     new_dataset = MoleculeDataset(root='dataset/chembl_with_labels',
                                   dataset='chembl_with_labels', empty=True)
     # collate manually
+    
     new_dataset.data, new_dataset.slices = new_dataset.collate(data_list)
 
     return new_dataset
