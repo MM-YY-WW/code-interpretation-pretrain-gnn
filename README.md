@@ -1,5 +1,6 @@
 # code-interpretation-pretrain-gnn
 Code interpretation in Chinese of paper "strategies for pre-training graph neural networks"
+Only for study use.
 
 ## /Chem Progress
 - [ ] loader.py(in progress)
