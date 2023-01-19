@@ -28,7 +28,7 @@ from itertools import repeat, product, chain
 
 
 # allowable node and edge features
-#这个字典包含了节点和
+#这个字典包含了节点和边
 allowable_features = {
     #原子序号表，从1到199
     'possible_atomic_num_list' : list(range(1, 119)), 
@@ -662,7 +662,7 @@ class MoleculeDataset(InMemoryDataset):
                         downstream_inchis.append(inchi)
                 #update这个set就是把（）里面的值加到set里面去
                 downstream_inchi_set.update(downstream_inchis)
-            #这个是个啥写法，大概意思就是加载raw文件夹中的数据集了，返回SMILES列表，rakit分子，啥？，和标签
+            #这个是个啥写法，大概意思就是加载raw文件夹中的数据集了，返回SMILES列表，rdkit分子，啥？，和标签
             smiles_list, rdkit_mol_objs, folds, labels = \
                 _load_chembl_with_labels_dataset(os.path.join(self.root, 'raw'))
             
@@ -1177,10 +1177,16 @@ def create_circular_fingerprint(mol, radius, size, chirality):
                                        nBits=size, useChirality=chirality)
     return np.array(fp)
 
-#一个新的dataset，记录分子指纹的，data是调的util.s的Dataset，可能是他们自己写的？
+#一个新的dataset，记录分子指纹的，data是调的torch.utils.data
 
 class MoleculeFingerprintDataset(data.Dataset):
     def __init__(self, root, dataset, radius, size, chirality=True):
+        #存的是字典的列表，每一个字典里都包含分子的环形指纹，标签，ID，和可能有的fold信息，这个fold是train/valid/test训练集的信息
+        #输入：1. root：数据集所在的根目录，raw文件夹下面需要有含有SMILES的数据集，processed文件夹下面可以是空的也可以是之前处理好的
+        #2. dataset是数据集的名字，又像上一个MoleculeDataset一样了，给每一个dataset都整个不同的出来
+        #3. radius，环形分子的半径。4. size：分子指纹向量的长度。 5.chirality如果是true的话那就包含指纹的信息
+        
+        
         """
         Create dataset object containing list of dicts, where each dict
         contains the circular fingerprint of the molecule, label, id,
@@ -1200,29 +1206,45 @@ class MoleculeFingerprintDataset(data.Dataset):
         self.radius = radius
         self.size = size
         self.chirality = chirality
-
+        #这个load()，两个下划线__首先表示的是内置函数，
+        #__双下划线也可以限制访问，self.__name = name,这样从类的外面就不能访问__name
+        #在python中以双下划线开头和结尾的变量是特殊变量，特殊变量是可以直接访问的。
+        #如果变量名前面只有一个下划线，表示此变量不要随便访问，虽然它可以被直接访问
         self._load()
 
     def _process(self):
+        #建一个SMIELS的列表
         data_smiles_list = []
+        #建一个data的列表
         data_list = []
+        #如果dataset是这个的话，上一个MoleculeDataset里面也有这个数据集
         if self.dataset == 'chembl_with_labels':
+            #加载SMILES， rdkit分子，fold，标签从raw里面加载出来
             smiles_list, rdkit_mol_objs, folds, labels = \
                 _load_chembl_with_labels_dataset(os.path.join(self.root, 'raw'))
             print('processing')
+            #遍历这个数据集
             for i in range(len(rdkit_mol_objs)):
+                #进行到哪个分子了
                 print(i)
+                #rdkit分子拿一个出来
                 rdkit_mol = rdkit_mol_objs[i]
+                #如果有分子的话
                 if rdkit_mol != None:
+                    # 将芳香键转化成双键
                     # # convert aromatic bonds to double bonds
+                    #这不是在生成环形指纹吗
                     fp_arr = create_circular_fingerprint(rdkit_mol,
                                                          self.radius,
                                                          self.size, self.chirality)
+                    #把生成的numpy指纹转化成tensor
                     fp_arr = torch.tensor(fp_arr)
                     # manually add mol id
+                    #手动加上分子在数据集中的index作为分子的id
                     id = torch.tensor([i])  # id here is the index of the mol in
-                    # the dataset
+                    #提取所有的label
                     y = torch.tensor(labels[i, :])
+                    #在这里给分子分出来train vaild test集
                     # fold information
                     if i in folds[0]:
                         fold = torch.tensor([0])
@@ -1230,54 +1252,79 @@ class MoleculeFingerprintDataset(data.Dataset):
                         fold = torch.tensor([1])
                     else:
                         fold = torch.tensor([2])
+                    #然后在data list里面接上含有分子指纹，ID，标签，fold的字典
                     data_list.append({'fp_arr': fp_arr, 'id': id, 'y': y,
                                       'fold': fold})
+                    #将SMIELS存到SMILES列表里面去
                     data_smiles_list.append(smiles_list[i])
+        #tox21数据集
         elif self.dataset == 'tox21':
             smiles_list, rdkit_mol_objs, labels = \
                 _load_tox21_dataset(os.path.join(self.root, 'raw/tox21.csv'))
             print('processing')
+            #遍历数据集
             for i in range(len(smiles_list)):
                 print(i)
+                # 取一个分子出来
                 rdkit_mol = rdkit_mol_objs[i]
                 ## convert aromatic bonds to double bonds
+                #算它的环形指纹
                 fp_arr = create_circular_fingerprint(rdkit_mol,
                                                         self.radius,
                                                         self.size,
                                                         self.chirality)
+                #把算出来的指纹变成tensor
                 fp_arr = torch.tensor(fp_arr)
 
                 # manually add mol id
+                # 手动加上ID，就是分子在数据集里面的index
                 id = torch.tensor([i])  # id here is the index of the mol in
-                # the dataset
+                # the dataset#
+                # 取所有的label并且转化成tensor
                 y = torch.tensor(labels[i, :])
+                # 这个tox21就没有fold信息可以存
                 data_list.append({'fp_arr': fp_arr, 'id': id, 'y': y})
+                # 将SMILES存起来
                 data_smiles_list.append(smiles_list[i])
+                
+        #hiv数据集
         elif self.dataset == 'hiv':
+            #将SMILES，rdkit分子和label提出来
             smiles_list, rdkit_mol_objs, labels = \
                 _load_hiv_dataset(os.path.join(self.root, 'raw/HIV.csv'))
             print('processing')
+            #遍历
             for i in range(len(smiles_list)):
                 print(i)
+                #取一个rdkit分子
                 rdkit_mol = rdkit_mol_objs[i]
+                #创造环形指纹，这个跟芳香键还是双键有啥关系呢
                 # # convert aromatic bonds to double bonds
                 fp_arr = create_circular_fingerprint(rdkit_mol,
                                                         self.radius,
                                                         self.size,
                                                         self.chirality)
+                #把得到的环形指纹转化成tensor
                 fp_arr = torch.tensor(fp_arr)
 
                 # manually add mol id
+                # 手动加id
                 id = torch.tensor([i])  # id here is the index of the mol in
                 # the dataset
+                #存label
                 y = torch.tensor([labels[i]])
+                #存指纹
                 data_list.append({'fp_arr': fp_arr, 'id': id, 'y': y})
+                #存SMILES
                 data_smiles_list.append(smiles_list[i])
         else:
+            #如果不在以上的dataset里面就报错
             raise ValueError('Invalid dataset name')
 
         # save processed data objects and smiles
+        #把目标文件夹的路径搞出来
         processed_dir = os.path.join(self.root, 'processed_fp')
+        #把SMIELS转成series再存成csv
         data_smiles_series = pd.Series(data_smiles_list)
         data_smiles_series.to_csv(os.path.join(processed_dir, 'smiles.csv'),
                                   index=False,
@@ -1287,10 +1334,13 @@ class MoleculeFingerprintDataset(data.Dataset):
                   'wb') as f:
             pickle.dump(data_list, f)
 
+    #这个load就是先把路径给它提取出来
     def _load(self):
         processed_dir = os.path.join(self.root, 'processed_fp')
         # check if saved file exist. If so, then load from save
+        #然后提出来所有文件名字的列表
         file_name_list = os.listdir(processed_dir)
+        #如果这个处理之后的文件在这个路径下的话，就加载已经处理好的数据
         if 'fingerprint_data_processed.pkl' in file_name_list:
             with open(os.path.join(processed_dir,
                                    'fingerprint_data_processed.pkl'),
@@ -1299,19 +1349,24 @@ class MoleculeFingerprintDataset(data.Dataset):
         # if no saved file exist, then perform processing steps, save then
         # reload
         else:
+            #如果没有的话就process处理一个出来，存起来，再load
             self._process()
             self._load()
-
+    #内置函数，计算这个dataset的大小
     def __len__(self):
         return len(self.data_list)
-
+    #内置函数，取其中一个object
     def __getitem__(self, index):
         ## if iterable class is passed, return dataset objection
+        #hasattr是python的内置函数，用于判断对象是否包含对应的属性，如果有该属性就True没有的话就False，就是index这个变量里面有没有“__iter__"
         if hasattr(index, "__iter__"):
+            #如果有的话，那就在建一个新的dataset，然后把data放进去
             dataset = MoleculeFingerprintDataset(self.root, self.dataset, self.radius, self.size, chirality=self.chirality)
             dataset.data_list = [self.data_list[i] for i in index]
+            #返回这个
             return dataset
         else:
+            #如果没有的话就直接返回data的列表
             return self.data_list[index]
 
 
