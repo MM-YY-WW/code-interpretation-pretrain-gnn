@@ -1150,7 +1150,9 @@ def merge_dataset_objs(dataset_1, dataset_2):
 
     return new_dataset
 
+#生成环形指纹
 def create_circular_fingerprint(mol, radius, size, chirality):
+    #输入rdkit分子，半径，大小？，手性，为什么手性这么重要呀？
     """
 
     :param mol:
@@ -1159,9 +1161,23 @@ def create_circular_fingerprint(mol, radius, size, chirality):
     :param chirality:
     :return: np array of morgan fingerprint
     """
+    #相当于把另一个方程封装了一下并且把结果转成了numpy arr
+    #这个方程是rdkit.chem里面的，
+    #https://blog.csdn.net/dreadlesss/article/details/105976113
+    #morgan fingerprints摩根分子指纹是一种圆形指纹，也属于拓扑型指纹，是通过对标准的摩根算法进行改造后得到
+    #可以大致等同于扩展连通性指纹（ECFP）
+    #计算速度快，没有预定义，可以表示无穷多种不同的分子特征，可以包含手性信息，每个元素代表一种特定的子结构。
+    #这类指纹设计的最初目的是用于搜索与活性相关的分子特征，而不是子结构搜索。
+    #步骤：1.原子初始化，为每个重原子分配一个整数标识符 2. 迭代更新，以每个重原子为中心，将周围一圈的原子合并起来，直到达到指定半径
+    #3. 特征生成，对子结构进行运算，并生成特征列表
+    #nBits是长度
+    #Draw.DrawMorganBit(m1,211414882, info)可以画出提取出的子结构的分子图
+    
     fp = GetMorganFingerprintAsBitVect(mol, radius,
                                        nBits=size, useChirality=chirality)
     return np.array(fp)
+
+#一个新的dataset，记录分子指纹的，data是调的util.s的Dataset，可能是他们自己写的？
 
 class MoleculeFingerprintDataset(data.Dataset):
     def __init__(self, root, dataset, radius, size, chirality=True):
