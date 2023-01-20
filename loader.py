@@ -1407,17 +1407,25 @@ def _load_hiv_dataset(input_path):
     :return: list of smiles, list of rdkit mol obj, np.array containing the
     labels
     """
+    #读csv
     input_df = pd.read_csv(input_path, sep=',')
+    #取SMILES
     smiles_list = input_df['smiles']
+    #转rdkit分子
     rdkit_mol_objs_list = [AllChem.MolFromSmiles(s) for s in smiles_list]
+    #一个task的话就直接取label
     labels = input_df['HIV_active']
     # convert 0 to -1
+    #0转-1
     labels = labels.replace(0, -1)
     # there are no nans
+    #检查数据的可靠性
     assert len(smiles_list) == len(rdkit_mol_objs_list)
     assert len(smiles_list) == len(labels)
+    #没问题就返回
     return smiles_list, rdkit_mol_objs_list, labels.values
 
+#加载bace数据集
 def _load_bace_dataset(input_path):
     """
 
@@ -1426,22 +1434,31 @@ def _load_bace_dataset(input_path):
     containing indices for each of the 3 folds, np.array containing the
     labels
     """
+    #读csv
     input_df = pd.read_csv(input_path, sep=',')
+    #读SMILES
     smiles_list = input_df['mol']
+    #转rdkit分子
     rdkit_mol_objs_list = [AllChem.MolFromSmiles(s) for s in smiles_list]
+    #取label
     labels = input_df['Class']
     # convert 0 to -1
+    #0转-1
     labels = labels.replace(0, -1)
     # there are no nans
+    #取fold信息，fold就是自带的这个分子应该属于train valid还是test集
     folds = input_df['Model']
     folds = folds.replace('Train', 0)   # 0 -> train
     folds = folds.replace('Valid', 1)   # 1 -> valid
     folds = folds.replace('Test', 2)    # 2 -> test
+    #检查数据的可靠性
     assert len(smiles_list) == len(rdkit_mol_objs_list)
     assert len(smiles_list) == len(labels)
     assert len(smiles_list) == len(folds)
+    #没问题就返回
     return smiles_list, rdkit_mol_objs_list, folds.values, labels.values
 
+#加载bbbp数据集
 def _load_bbbp_dataset(input_path):
     """
 
@@ -1449,24 +1466,33 @@ def _load_bbbp_dataset(input_path):
     :return: list of smiles, list of rdkit mol obj, np.array containing the
     labels
     """
+    #读csv
     input_df = pd.read_csv(input_path, sep=',')
+    #读SMILES
     smiles_list = input_df['smiles']
+    #转rdkit分子
     rdkit_mol_objs_list = [AllChem.MolFromSmiles(s) for s in smiles_list]
-
+    #这里处理了一堆没有成功转成rdkit分子的SMLIES，但是我不明白为什么要把这个要从None转成None，
     preprocessed_rdkit_mol_objs_list = [m if m != None else None for m in
                                                           rdkit_mol_objs_list]
+    #如果rdkit分子是None的话，就把对应的SMILES也转成None
     preprocessed_smiles_list = [AllChem.MolToSmiles(m) if m != None else
                                 None for m in preprocessed_rdkit_mol_objs_list]
+    #取label
     labels = input_df['p_np']
     # convert 0 to -1
+    #0转成-1
     labels = labels.replace(0, -1)
     # there are no nans
+    #检查数据是否缺
     assert len(smiles_list) == len(preprocessed_rdkit_mol_objs_list)
     assert len(smiles_list) == len(preprocessed_smiles_list)
     assert len(smiles_list) == len(labels)
+    #没缺的话就返回值，这里面的\是个啥意思
     return preprocessed_smiles_list, preprocessed_rdkit_mol_objs_list, \
            labels.values
 
+#加载clintox数据集
 def _load_clintox_dataset(input_path):
     """
 
@@ -1474,27 +1500,37 @@ def _load_clintox_dataset(input_path):
     :return: list of smiles, list of rdkit mol obj, np.array containing the
     labels
     """
+    #读csv
     input_df = pd.read_csv(input_path, sep=',')
+    #读SMILES
     smiles_list = input_df['smiles']
+    #转人dkit分子
     rdkit_mol_objs_list = [AllChem.MolFromSmiles(s) for s in smiles_list]
-
+    #如果没成功转成rdkit分子的话，就把None换成None，真的是没道理？不做会怎么样
     preprocessed_rdkit_mol_objs_list = [m if m != None else None for m in
                                         rdkit_mol_objs_list]
+    #如果rdkit分子None的话，SMILES也设成None
     preprocessed_smiles_list = [AllChem.MolToSmiles(m) if m != None else
                                 None for m in preprocessed_rdkit_mol_objs_list]
+    #task列表
     tasks = ['FDA_APPROVED', 'CT_TOX']
+    #提取label
     labels = input_df[tasks]
     # convert 0 to -1
+    #将0转成-1
     labels = labels.replace(0, -1)
     # there are no nans
+    #检查数据的合理性
     assert len(smiles_list) == len(preprocessed_rdkit_mol_objs_list)
     assert len(smiles_list) == len(preprocessed_smiles_list)
     assert len(smiles_list) == len(labels)
+    #没问题的话就返回
     return preprocessed_smiles_list, preprocessed_rdkit_mol_objs_list, \
            labels.values
 # input_path = 'dataset/clintox/raw/clintox.csv'
 # smiles_list, rdkit_mol_objs_list, labels = _load_clintox_dataset(input_path)
 
+#加载esol数据集
 def _load_esol_dataset(input_path):
     """
 
@@ -1503,16 +1539,23 @@ def _load_esol_dataset(input_path):
     labels (regression task)
     """
     # NB: some examples have multiple species
+    #读csv
     input_df = pd.read_csv(input_path, sep=',')
+    #读SMILES
     smiles_list = input_df['smiles']
+    #转rdkit分子
     rdkit_mol_objs_list = [AllChem.MolFromSmiles(s) for s in smiles_list]
+    #取label
     labels = input_df['measured log solubility in mols per litre']
+    #检查数据
     assert len(smiles_list) == len(rdkit_mol_objs_list)
     assert len(smiles_list) == len(labels)
+    #没问题就返回
     return smiles_list, rdkit_mol_objs_list, labels.values
 # input_path = 'dataset/esol/raw/delaney-processed.csv'
 # smiles_list, rdkit_mol_objs_list, labels = _load_esol_dataset(input_path)
 
+#加载freesolv数据集
 def _load_freesolv_dataset(input_path):
     """
 
@@ -1520,15 +1563,21 @@ def _load_freesolv_dataset(input_path):
     :return: list of smiles, list of rdkit mol obj, np.array containing the
     labels (regression task)
     """
+    #读取csv
     input_df = pd.read_csv(input_path, sep=',')
+    #读SMILES
     smiles_list = input_df['smiles']
+    #转rdkit分子
     rdkit_mol_objs_list = [AllChem.MolFromSmiles(s) for s in smiles_list]
+    #取label
     labels = input_df['expt']
+    #检查数据
     assert len(smiles_list) == len(rdkit_mol_objs_list)
     assert len(smiles_list) == len(labels)
+    #没问题返回
     return smiles_list, rdkit_mol_objs_list, labels.values
 
-
+#加载lipophilicity数据集
 def _load_lipophilicity_dataset(input_path):
     """
 
@@ -1536,15 +1585,21 @@ def _load_lipophilicity_dataset(input_path):
     :return: list of smiles, list of rdkit mol obj, np.array containing the
     labels (regression task)
     """
+    #读csv
     input_df = pd.read_csv(input_path, sep=',')
+    #读SMILES
     smiles_list = input_df['smiles']
+    #转rdkit分子
     rdkit_mol_objs_list = [AllChem.MolFromSmiles(s) for s in smiles_list]
+    #取label
     labels = input_df['exp']
+    #检查数据
     assert len(smiles_list) == len(rdkit_mol_objs_list)
     assert len(smiles_list) == len(labels)
+    #没问题就返回
     return smiles_list, rdkit_mol_objs_list, labels.values
 
-
+#加载muv数据集
 def _load_muv_dataset(input_path):
     """
 
@@ -1552,21 +1607,31 @@ def _load_muv_dataset(input_path):
     :return: list of smiles, list of rdkit mol obj, np.array containing the
     labels
     """
+    #读取csv
     input_df = pd.read_csv(input_path, sep=',')
+    #取SMILES
     smiles_list = input_df['smiles']
+    #转rdkit分子
     rdkit_mol_objs_list = [AllChem.MolFromSmiles(s) for s in smiles_list]
+    #取task列表
     tasks = ['MUV-466', 'MUV-548', 'MUV-600', 'MUV-644', 'MUV-652', 'MUV-689',
        'MUV-692', 'MUV-712', 'MUV-713', 'MUV-733', 'MUV-737', 'MUV-810',
        'MUV-832', 'MUV-846', 'MUV-852', 'MUV-858', 'MUV-859']
+    #取所有task的label
     labels = input_df[tasks]
     # convert 0 to -1
+    #0转-1
     labels = labels.replace(0, -1)
     # convert nan to 0
+    #nan转0
     labels = labels.fillna(0)
+    #检查数据
     assert len(smiles_list) == len(rdkit_mol_objs_list)
     assert len(smiles_list) == len(labels)
+    #没问题就返回
     return smiles_list, rdkit_mol_objs_list, labels.values
 
+#加载sider数据集
 def _load_sider_dataset(input_path):
     """
 
@@ -1574,9 +1639,13 @@ def _load_sider_dataset(input_path):
     :return: list of smiles, list of rdkit mol obj, np.array containing the
     labels
     """
+    #读csv
     input_df = pd.read_csv(input_path, sep=',')
+    #读SMILES
     smiles_list = input_df['smiles']
+    #转rdkit分子
     rdkit_mol_objs_list = [AllChem.MolFromSmiles(s) for s in smiles_list]
+    #列出task列表，这个列表也太长了吧
     tasks = ['Hepatobiliary disorders',
        'Metabolism and nutrition disorders', 'Product issues', 'Eye disorders',
        'Investigations', 'Musculoskeletal and connective tissue disorders',
@@ -1595,13 +1664,18 @@ def _load_sider_dataset(input_path):
        'Ear and labyrinth disorders', 'Cardiac disorders',
        'Nervous system disorders',
        'Injury, poisoning and procedural complications']
+    #取所有task的label
     labels = input_df[tasks]
     # convert 0 to -1
+    #0转成-1
     labels = labels.replace(0, -1)
+    #检查数据
     assert len(smiles_list) == len(rdkit_mol_objs_list)
     assert len(smiles_list) == len(labels)
+    #没问题就返回
     return smiles_list, rdkit_mol_objs_list, labels.value
 
+#加载toxcast数据集
 def _load_toxcast_dataset(input_path):
     """
 
@@ -1610,27 +1684,39 @@ def _load_toxcast_dataset(input_path):
     labels
     """
     # NB: some examples have multiple species, some example smiles are invalid
+    #这个数据集涉及不同的分子species了，但是我还是不明白啥叫不同的species
+    #读csv
     input_df = pd.read_csv(input_path, sep=',')
+    #取SMILES
     smiles_list = input_df['smiles']
+    #转rdkit分子
     rdkit_mol_objs_list = [AllChem.MolFromSmiles(s) for s in smiles_list]
     # Some smiles could not be successfully converted
     # to rdkit mol object so them to None
+    # 处理了没成功转成rdkit分子的SMILES，将他们设置成None，可是他们本来就是None了啊？
     preprocessed_rdkit_mol_objs_list = [m if m != None else None for m in
                                         rdkit_mol_objs_list]
+    #没转成功的把SMILES也设制成None
     preprocessed_smiles_list = [AllChem.MolToSmiles(m) if m != None else
                                 None for m in preprocessed_rdkit_mol_objs_list]
+    # 直接除了第一列其他的都是task，转成list
     tasks = list(input_df.columns)[1:]
+    #取label
     labels = input_df[tasks]
     # convert 0 to -1
+    #0转化成-1
     labels = labels.replace(0, -1)
     # convert nan to 0
+    #nan转化成0
     labels = labels.fillna(0)
+    #检查数据
     assert len(smiles_list) == len(preprocessed_rdkit_mol_objs_list)
     assert len(smiles_list) == len(preprocessed_smiles_list)
     assert len(smiles_list) == len(labels)
+    #没问题就返回，\的意思？
     return preprocessed_smiles_list, preprocessed_rdkit_mol_objs_list, \
            labels.values
-
+#加载chembl数据集，这个长啊
 def _load_chembl_with_labels_dataset(root_path):
     """
     Data from 'Large-scale comparison of machine learning methods for drug target prediction on ChEMBL'
