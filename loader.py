@@ -1369,7 +1369,7 @@ class MoleculeFingerprintDataset(data.Dataset):
             #如果没有的话就直接返回data的列表
             return self.data_list[index]
 
-
+#又是一个轻易不要调取的内置函数
 def _load_tox21_dataset(input_path):
     """
 
@@ -1377,20 +1377,30 @@ def _load_tox21_dataset(input_path):
     :return: list of smiles, list of rdkit mol obj, np.array containing the
     labels
     """
+    #读取csv
     input_df = pd.read_csv(input_path, sep=',')
+    #取SMILES
     smiles_list = input_df['smiles']
+    #生成rdkit分子
     rdkit_mol_objs_list = [AllChem.MolFromSmiles(s) for s in smiles_list]
+    #所有task的列表
     tasks = ['NR-AR', 'NR-AR-LBD', 'NR-AhR', 'NR-Aromatase', 'NR-ER', 'NR-ER-LBD',
        'NR-PPAR-gamma', 'SR-ARE', 'SR-ATAD5', 'SR-HSE', 'SR-MMP', 'SR-p53']
+    #一下子取所有的task的label
     labels = input_df[tasks]
     # convert 0 to -1
+    #将0转成-1
     labels = labels.replace(0, -1)
     # convert nan to 0
+    #将nan转成0
     labels = labels.fillna(0)
+    #检查数据的长度有没有问题
     assert len(smiles_list) == len(rdkit_mol_objs_list)
     assert len(smiles_list) == len(labels)
+    #没问题就返回
     return smiles_list, rdkit_mol_objs_list, labels.values
 
+#加载hiv数据集
 def _load_hiv_dataset(input_path):
     """
     :param input_path:
