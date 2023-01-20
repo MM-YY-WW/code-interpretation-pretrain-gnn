@@ -1,6 +1,12 @@
 import os
 import torch
+#pickle是用来序列化和反序列化的，通俗来讲就是把python的对象从内存里面弄出来
+#变成一个二进制流，可以像其他文件一样存在硬盘里或者发给其他进程，但是要注意
+#pickle有安全隐患，不要在公共网络中传输pickle流，可能被植入恶意代码，在接收端反序列化的时候被执行
+#从序列化的角度来看，pickle的方案和JSON，YAML，XML等没有本质的区别
+#https://blog.csdn.net/coffee_cream/article/details/51754484
 import pickle
+
 import collections
 import math
 import pandas as pd
@@ -1718,12 +1724,15 @@ def _load_toxcast_dataset(input_path):
            labels.values
 #加载chembl数据集，这个长啊
 def _load_chembl_with_labels_dataset(root_path):
+    #这个数据是由大规模的ml方法生成的药物和作用目标的预测
     """
     Data from 'Large-scale comparison of machine learning methods for drug target prediction on ChEMBL'
+    #啥叫reduced chembl？
     :param root_path: path to the folder containing the reduced chembl dataset
     :return: list of smiles, preprocessed rdkit mol obj list, list of np.array
     containing indices for each of the 3 folds, np.array containing the labels
     """
+    
     # adapted from https://github.com/ml-jku/lsc/blob/master/pythonCode/lstm/loadData.py
     # first need to download the files and unzip:
     # wget http://bioinf.jku.at/research/lsc/chembl20/dataPythonReduced.zip
@@ -1733,19 +1742,32 @@ def _load_chembl_with_labels_dataset(root_path):
     # wget http://bioinf.jku.at/research/lsc/chembl20/dataPythonReduced/chembl20LSTM.pckl
 
     # 1. load folds and labels
+    #加载fold信息
+    #这个是单独存着的
     f=open(os.path.join(root_path, 'folds0.pckl'), 'rb')
+    #pickel是用来序列化和反序列化的模块
     folds=pickle.load(f)
     f.close()
-
+    
+    #加载label信息
+    #这里的pickle.load加载的都是一样的东西吗？
     f=open(os.path.join(root_path, 'labelsHard.pckl'), 'rb')
     targetMat=pickle.load(f)
     sampleAnnInd=pickle.load(f)
     targetAnnInd=pickle.load(f)
     f.close()
-
+    # https://blog.csdn.net/coffee_cream/article/details/51754484
+    # 在机器学习中，经常需要把训练好的模型存储起来，在用的的时候直接读出来而不用重新训练
+    # pickle.dump(obj, file, [,protocol])将obj对象序列化的存入已经打开的file中去
+    # pickle.load(file)将file中的对象序列化读出。
+    
+    #为啥要加一句自己等于自己？
     targetMat=targetMat
+    #tocsr() 压缩系数行格式，return a copy of this matrix in compressied sparse column format
     targetMat=targetMat.copy().tocsr()
+    # 将matrix的indices sorted
     targetMat.sort_indices()
+    #为什么这里又要等于一次？
     targetAnnInd=targetAnnInd
     targetAnnInd=targetAnnInd-targetAnnInd.min()
 
