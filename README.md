@@ -4,7 +4,7 @@ Code interpretation in Chinese of paper "strategies for pre-training graph neura
 ### Only for personal use.
 
 ## /Chem Progress
-- [x] loader.py(in progress)
+- [x] loader.py
 - [ ] batch.py
 - [ ] dataloader.py
 - [ ] finetune.py (in progress)
