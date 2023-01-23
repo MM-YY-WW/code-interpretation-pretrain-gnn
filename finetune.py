@@ -240,13 +240,19 @@ def main():
 
     print(dataset)
     
+    #分析分割数据集的方式
+    #如果传入的是scaffold分割方法的话
     if args.split == "scaffold":
+        #先把处理好的数据集读进来，读成list
         smiles_list = pd.read_csv('dataset/' + args.dataset + '/processed/smiles.csv', header=None)[0].tolist()
+        #然后用从torch.splitters里面引入的scaffold_split来分割数据集
         train_dataset, valid_dataset, test_dataset = scaffold_split(dataset, smiles_list, null_value=0, frac_train=0.8,frac_valid=0.1, frac_test=0.1)
         print("scaffold")
+    #这个random_split函数是从哪里引入的？很怪啊上面没看到
     elif args.split == "random":
         train_dataset, valid_dataset, test_dataset = random_split(dataset, null_value=0, frac_train=0.8,frac_valid=0.1, frac_test=0.1, seed = args.seed)
         print("random")
+    #这个random_scaffold_split也是一样的没看到？
     elif args.split == "random_scaffold":
         smiles_list = pd.read_csv('dataset/' + args.dataset + '/processed/smiles.csv', header=None)[0].tolist()
         train_dataset, valid_dataset, test_dataset = random_scaffold_split(dataset, smiles_list, null_value=0, frac_train=0.8,frac_valid=0.1, frac_test=0.1, seed = args.seed)
