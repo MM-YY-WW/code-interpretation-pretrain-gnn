@@ -1770,51 +1770,71 @@ def _load_chembl_with_labels_dataset(root_path):
     #为什么这里又要等于一次？
     targetAnnInd=targetAnnInd
     targetAnnInd=targetAnnInd-targetAnnInd.min()
-
+    
+    #输入是两个arr，返回一个排好序的，两个arr的交集。（不重复且在两组数据中都出现过的）
     folds=[np.intersect1d(fold, sampleAnnInd.index.values).tolist() for fold in folds]
+    #CSR，CRS，Yale format，是一种稀疏矩阵的主要存储模式。跟coo很像，CSR是COO的一种改进格式，这种格式要求矩阵元按行的顺序存储，每一行中的元素可以乱序存储，
+    #对于每一行，就不需要记录所有元素的行指标，只需要用一个指针表示每一行元素的起始位置。就相当于是把COO里面的行变成了每一行开始时在COO的row arr里面的index是啥
     targetMatTransposed=targetMat[sampleAnnInd[list(chain(*folds))]].T.tocsr()
+    #CSR的列索隐不一定要有序，当需要有序的索引时（如传递数据到其他库等情况）可使用.sorted_indices()和.sort_indices()的方法
     targetMatTransposed.sort_indices()
+    # 中间-0.5到0.5之间的值为什么不考虑？
     # # num positive examples in each of the 1310 targets
     trainPosOverall=np.array([np.sum(targetMatTransposed[x].data > 0.5) for x in range(targetMatTransposed.shape[0])])
     # # num negative examples in each of the 1310 targets
     trainNegOverall=np.array([np.sum(targetMatTransposed[x].data < -0.5) for x in range(targetMatTransposed.shape[0])])
     # dense array containing the labels for the 456331 molecules and 1310 targets
+    #这个.A是个啥意思，为什么可以把-1，0，1挑出来呢？
     denseOutputData=targetMat.A # possible values are {-1, 0, 1}
 
     # 2. load structures
+    #加载新的结构数据
     f=open(os.path.join(root_path, 'chembl20LSTM.pckl'), 'rb')
     rdkitArr=pickle.load(f)
     f.close()
-
+    #检查数据的长度有没有问题
     assert len(rdkitArr) == denseOutputData.shape[0]
     assert len(rdkitArr) == len(folds[0]) + len(folds[1]) + len(folds[2])
-
+    #创建一个处理好的，rdkit序列的空arr
     preprocessed_rdkitArr = []
     print('preprocessing')
+    # 遍历结构数据
     for i in range(len(rdkitArr)):
         print(i)
+        #取出一条结构数据
         m = rdkitArr[i]
+        #如果没有东西的话
         if m == None:
+            # 就在最后结果上也加上None
             preprocessed_rdkitArr.append(None)
         else:
+            #将不同的species都列在一个list里面
             mol_species_list = split_rdkit_mol_obj(m)
+            #如果这个一个species都没有的话
             if len(mol_species_list) == 0:
+                #结果也存成None
                 preprocessed_rdkitArr.append(None)
             else:
+                #如果有species的话选最大的
                 largest_mol = get_largest_mol(mol_species_list)
+                #如果选出来的分子里面的原子数不超过两个的话就太小了，也不要
                 if len(largest_mol.GetAtoms()) <= 2:
+                    #这里就直接记录成None
                     preprocessed_rdkitArr.append(None)
                 else:
+                    #如果选出来的分子中的原子数大于二的话就返回这个值
                     preprocessed_rdkitArr.append(largest_mol)
-
+    #检查一下有没有漏掉数据
     assert len(preprocessed_rdkitArr) == denseOutputData.shape[0]
-
+    
+    #这里如果上面None了它所对应的SMILES list也要None
     smiles_list = [AllChem.MolToSmiles(m) if m != None else None for m in
                    preprocessed_rdkitArr]   # bc some empty mol in the
     # rdkitArr zzz...
-
+    
+    #然后再检查一下数据有没有问题
     assert len(preprocessed_rdkitArr) == len(smiles_list)
-
+    #没问题就返回值了
     return smiles_list, preprocessed_rdkitArr, folds, denseOutputData
 # root_path = 'dataset/chembl_with_labels'
 
@@ -1865,8 +1885,10 @@ def get_largest_mol(mol_list):
     #返回这个选中的分子
     return mol_list[largest_mol_idx]
 
+#生成所有数据集的方程
 def create_all_datasets():
     #### create dataset
+    #列出所有数据集的名字
     downstream_dir = [
             'bace',
             'bbbp',
@@ -1881,20 +1903,28 @@ def create_all_datasets():
             'toxcast'
             ]
 
+    #遍历上面的数据集名字
     for dataset_name in downstream_dir:
         print(dataset_name)
+        #写出数据集的路径
         root = "dataset/" + dataset_name
+        #建立这个文件夹
         os.makedirs(root + "/processed", exist_ok=True)
+        #创建数据集
         dataset = MoleculeDataset(root, dataset=dataset_name)
         print(dataset)
 
-
+    #单独处理剩下的两个不在list里面的
     dataset = MoleculeDataset(root = "dataset/chembl_filtered", dataset="chembl_filtered")
     print(dataset)
     dataset = MoleculeDataset(root = "dataset/zinc_standard_agent", dataset="zinc_standard_agent")
     print(dataset)
 
-
+#https://developer.aliyun.com/article/611476#:~:text=%E6%89%80%E4%BB%A5%EF%BC%8C%20if%20__name__,%E4%B8%8EPython%20%E7%9A%84%20-m%20%E5%8F%82%E6%95%B0%E3%80%82
+#main函数一般是程序的入口。python属于脚本语言，不像编译型语言那样先将程序编译成二进制再运行，而是动态的逐行解释运行。是从脚本的第一行开始的，没有统一的入口。
+#一个python源码文件除了可以被直接运行外，还可以作为模块被倒入。不管是导入还是直接运行，最顶层的代码都会被运行（python用锁紧来区分代码层次）。
+#这句话就相当于python模拟的程序入口，__name__是内置变量，用于表示当前模块的名字，同时还能反应一个包的结构。如果模块被直接运行，则代码块运行，如果模块是被import的。则代码不被运行
+#python的-m参数用于将一个模块或者包作为一个脚本运行，加上-m时会先将模块或者包导入，然后再执行。运行时__main__.py文件总是被执行
 # test MoleculeDataset object
 if __name__ == "__main__":
 
