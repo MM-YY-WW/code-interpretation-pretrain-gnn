@@ -259,14 +259,17 @@ def main():
         print("random scaffold")
     else:
         raise ValueError("Invalid split option.")
-
+    
+    #看一下第一个对不对
     print(train_dataset[0])
-
+    
+    #生成loader们，只有train load是suffle的，val和test为了保证控制变量吗所以不是shuffle的
     train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers = args.num_workers)
     val_loader = DataLoader(valid_dataset, batch_size=args.batch_size, shuffle=False, num_workers = args.num_workers)
     test_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False, num_workers = args.num_workers)
 
     #set up model
+    #准备模型，GNN_graphpred是从model文件夹里引入的，去看一下
     model = GNN_graphpred(args.num_layer, args.emb_dim, num_tasks, JK = args.JK, drop_ratio = args.dropout_ratio, graph_pooling = args.graph_pooling, gnn_type = args.gnn_type)
     if not args.input_model_file == "":
         model.from_pretrained(args.input_model_file)
